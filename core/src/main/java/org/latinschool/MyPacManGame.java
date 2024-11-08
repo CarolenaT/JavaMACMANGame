@@ -70,9 +70,9 @@ public class MyPacManGame implements ApplicationListener {
         pacmanZone = new Rectangle();
 
 
-       /*tiledMap = new TmxMapLoader().load("pacman_map.tmx");
+        tiledMap = new TmxMapLoader().load("pacman_map.tmx");
         // Get the layer named "walls" from the TiledMap
-        wallLayer = (TiledMapTileLayer) tiledMap.getLayers().get("walls");*/
+        wallLayer = (TiledMapTileLayer) tiledMap.getLayers().get("walls");
 
         score = 0;
     }
@@ -112,6 +112,20 @@ public class MyPacManGame implements ApplicationListener {
         } else if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
             pacmanSprite.translateY(-PAC_SPEED * delta);
         }
+    }
+    public boolean checkCollision(float nextX, float nextY) {
+        // Calculate the tile position that Pac-Man will be in
+        int tileX = (int)(nextX / wallLayer.getTileWidth());
+        int tileY = (int)(nextY / wallLayer.getTileHeight());
+
+        // Get the tile at the new position
+        TiledMapTileLayer.Cell cell = wallLayer.getCell(tileX, tileY);
+
+        // If the tile is not null and has the "collidable" property, a collision is detected
+        if (cell != null && cell.getTile().getProperties().containsKey("collidable")) {
+            return true; // There is a wall here, prevent movement
+        }
+        return false; // No collision, allow movement
     }
 
     public void logic() {
@@ -187,6 +201,7 @@ public class MyPacManGame implements ApplicationListener {
         backgroundTexture.dispose();
         pacmanTexture.dispose();
         ghostTexture.dispose();
+        tiledMap.dispose();
     }
 }
 
