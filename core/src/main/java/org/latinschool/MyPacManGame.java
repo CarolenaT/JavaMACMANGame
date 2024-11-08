@@ -1,7 +1,9 @@
 package org.latinschool;
 
 import com.badlogic.gdx.*;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.Sprite;
@@ -38,6 +40,11 @@ public class MyPacManGame implements ApplicationListener {
 
     private TiledMap tiledMap;
     private TiledMapTileLayer wallLayer;
+    Pixmap mapPixmap;
+    Color wallColor;
+
+    private float pacmanVelocityX = 0; // Horizontal velocity of Pac-Man
+    private float pacmanVelocityY = 0; // Vertical velocity of Pac-Man
 
     @Override
     public void create() {
@@ -70,9 +77,12 @@ public class MyPacManGame implements ApplicationListener {
         pacmanZone = new Rectangle();
 
 
-        tiledMap = new TmxMapLoader().load("pacman_map.tmx");
+        tiledMap = new TmxMapLoader().load("clasic.tmx");
         // Get the layer named "walls" from the TiledMap
         wallLayer = (TiledMapTileLayer) tiledMap.getLayers().get("walls");
+
+        mapPixmap = new Pixmap(Gdx.files.internal("meta-tiles.png"));
+        wallColor = new Color(0, 0, 0, 1);
 
         score = 0;
     }
@@ -103,54 +113,77 @@ public class MyPacManGame implements ApplicationListener {
     public void input() {
         float delta = Gdx.graphics.getDeltaTime();
 
+        float nextX = pacmanSprite.getX();
+        float nextY = pacmanSprite.getY();
+
+        pacmanVelocityX = 0; // Reset velocities to avoid continuous movement
+        pacmanVelocityY = 0;
+
         if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
-            pacmanSprite.translateX(PAC_SPEED * delta);
+            nextX += PAC_SPEED * delta;
         } else if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
-            pacmanSprite.translateX(-PAC_SPEED * delta);
+            nextX -= PAC_SPEED * delta;
         } else if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
-            pacmanSprite.translateY(PAC_SPEED * delta);
+            nextY += PAC_SPEED * delta;
         } else if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
-            pacmanSprite.translateY(-PAC_SPEED * delta);
+            nextY -= PAC_SPEED * delta;
         }
-    }
-    public boolean checkCollision(float nextX, float nextY) {
-        // Calculate the tile position that Pac-Man will be in
-        int tileX = (int)(nextX / wallLayer.getTileWidth());
-        int tileY = (int)(nextY / wallLayer.getTileHeight());
 
-        // Get the tile at the new position
-        TiledMapTileLayer.Cell cell = wallLayer.getCell(tileX, tileY);
+        // Before actually moving, check if the next position collides with a wall
+        if (!isCollision(nextX, nextY)) {
+            // No collision, so move Pac-Man to the new position
+            pacmanSprite.setX(nextX);
+            pacmanSprite.setY(nextY);
+    }}
 
-        // If the tile is not null and has the "collidable" property, a collision is detected
-        if (cell != null && cell.getTile().getProperties().containsKey("collidable")) {
-            return true; // There is a wall here, prevent movement
+    public boolean isCollision(float x, float y) {
+        // Convert world coordinates (x, y) to pixel coordinates in the image
+        int pixelX = (int) (x); // Adjust scaling if necessary
+        int pixelY = (int) (y);
+
+        // Ensure that the coordinates are within bounds of the image
+        if (pixelX < 0 || pixelX >= mapPixmap.getWidth() || pixelY < 0 || pixelY >= mapPixmap.getHeight()) {
+            return false; // Outside the map, no collision
         }
-        return false; // No collision, allow movement
+
+        // Get the color of the pixel at the (x, y) position
+        int pixelColor = mapPixmap.getPixel(pixelX, pixelY);
+        Color color = new Color(pixelColor);
+
+        // Check if the pixel color matches the wall color (black)
+        return color.equals(wallColor); // true if it's a black pixel (wall)
     }
+
 
     public void logic() {
+        // Calculate next position based on current position + velocity
+        float nextX = pacmanSprite.getX() + pacmanVelocityX;
+        float nextY = pacmanSprite.getY() + pacmanVelocityY;
+
+        // Check if the next position collides with a wall
+        if (!isCollision(nextX, nextY)) {
+            // No collision, so move Pac-Man to the new position
+            pacmanSprite.setX(nextX);
+            pacmanSprite.setY(nextY);
+        } else {
+            // Collision detected, adjust Pac-Man's position or stop
+            // You can add logic here to adjust Pac-Man's position to stop at the wall,
+            // or handle "bouncing" off walls if you prefer.
+            // For example, stop movement in the direction of the collision:
+            if (pacmanVelocityX != 0) { // Horizontal movement
+                pacmanSprite.setX(pacmanSprite.getX()); // Keep Pac-Man in place horizontally
+            }
+            if (pacmanVelocityY != 0) { // Vertical movement
+                pacmanSprite.setY(pacmanSprite.getY()); // Keep Pac-Man in place vertically
+            }
+        }
+
+        // Additional logic for keeping Pac-Man within bounds of the screen, if necessary
         float worldWidth = viewport.getWorldWidth();
         float worldHeight = viewport.getWorldHeight();
-
-        float pacmanWidth = pacmanSprite.getWidth();
-        float pacmanHeight = pacmanSprite.getHeight();
-
-        pacmanSprite.setX(MathUtils.clamp(pacmanSprite.getX(), 0, worldWidth - pacmanWidth));
-        pacmanSprite.setY(MathUtils.clamp(pacmanSprite.getY(), 0, worldHeight - pacmanHeight));
-
-        float delta = Gdx.graphics.getDeltaTime();
-        pacmanZone.set(pacmanSprite.getX(), pacmanSprite.getY(), pacmanWidth, pacmanHeight);
-
-        if (pacmanSprite.getBoundingRectangle().overlaps(safeZone)) {
-            System.out.println("Pac-Man is in the safe zone!");
-            pause();
-        }
-        else{
-            resume();
-        }
-
+        pacmanSprite.setX(MathUtils.clamp(pacmanSprite.getX(), 0, worldWidth - pacmanSprite.getWidth()));
+        pacmanSprite.setY(MathUtils.clamp(pacmanSprite.getY(), 0, worldHeight - pacmanSprite.getHeight()));
     }
-
     public void points() {
         if (pacmanSprite.getBoundingRectangle().overlaps(powerPillSprite.getBoundingRectangle())) {
 
@@ -177,7 +210,7 @@ public class MyPacManGame implements ApplicationListener {
         spriteBatch.setProjectionMatrix(viewport.getCamera().combined);
         spriteBatch.begin();
 
-        spriteBatch.draw(backgroundTexture, 0, 0, viewport.getWorldWidth(), viewport.getWorldHeight());
+        //spriteBatch.draw(backgroundTexture, 0, 0, viewport.getWorldWidth(), viewport.getWorldHeight());
         ghostSprite.draw(spriteBatch);
         pacmanSprite.draw(spriteBatch);
 
@@ -202,6 +235,7 @@ public class MyPacManGame implements ApplicationListener {
         pacmanTexture.dispose();
         ghostTexture.dispose();
         tiledMap.dispose();
+        mapPixmap.dispose();
     }
 }
 
