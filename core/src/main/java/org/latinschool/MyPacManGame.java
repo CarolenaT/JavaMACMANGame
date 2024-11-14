@@ -1,20 +1,26 @@
 package org.latinschool;
 
 import com.badlogic.gdx.*;
-import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.Pixmap;
-import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.maps.tiled.TiledMap;
+import com.badlogic.gdx.maps.tiled.TiledMapTile;
 import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
 import com.badlogic.gdx.maps.tiled.TmxMapLoader;
+import com.badlogic.gdx.maps.tiled.objects.TiledMapTileMapObject;
+import com.badlogic.gdx.maps.tiled.tiles.StaticTiledMapTile;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
+
+import java.util.HashMap;
+import java.util.Map;
+
 
 public class MyPacManGame implements ApplicationListener {
     Texture backgroundTexture;
@@ -24,50 +30,53 @@ public class MyPacManGame implements ApplicationListener {
     FitViewport viewport;
     Sprite ghostSprite;
     Sprite pacmanSprite;
-    Sprite powerPillSprite;
     SpriteBatch spriteBatch;
     Rectangle safeZone;
     Rectangle pacmanZone;
-    int score;
     MyPacManGame game;
     String difficulty;
+    int score;
+    int newScore;
+    int speed;
+    int numGhosts;
 
 
     ShapeRenderer shapeRenderer;
     BitmapFont font;
 
     private final float PAC_SPEED = 4f;
+    private final float PELLET_DISAPPEAR_TIME = 60f;
 
     private TiledMap tiledMap;
     private TiledMapTileLayer wallLayer;
+    private Map<String, Float> pelletTimers;
+    private TiledMapTileLayer pelletLayer;// Track pellet timers
+
+
     Pixmap mapPixmap;
     Color wallColor;
 
-    private float pacmanVelocityX = 0; // Horizontal velocity of Pac-Man
-    private float pacmanVelocityY = 0; // Vertical velocity of Pac-Man
+    private OrthogonalTiledMapRenderer tiledMapRenderer;
 
     @Override
     public void create() {
         backgroundTexture = new Texture("Maze.png");
         pacmanTexture = new Texture("Pacman.png");
         ghostTexture = new Texture("ghost.png");
-        powerPillTexture = new Texture("pellet.png");
 
-        viewport = new FitViewport(10, 10);
+        viewport = new FitViewport(280, 280);
         viewport.getCamera().position.set(0, 0, 0);
         viewport.getCamera().update();
 
         ghostSprite = new Sprite(ghostTexture);
         pacmanSprite = new Sprite(pacmanTexture);
-        powerPillSprite = new Sprite(powerPillTexture);
 
-        ghostSprite.setSize(0.5f, 0.5f);
-        pacmanSprite.setSize(0.5f, 0.5f);
-        powerPillSprite.setSize(0.5f, 0.5f);
+        ghostSprite.setSize(8, 8);
+        pacmanSprite.setSize(8, 8);
 
 
-        ghostSprite.setPosition(1, 1);
-        pacmanSprite.setPosition(9, 9);
+        ghostSprite.setPosition(20, 20);
+        pacmanSprite.setPosition(15, 15);
 
         spriteBatch = new SpriteBatch();
         shapeRenderer = new ShapeRenderer();
@@ -76,15 +85,19 @@ public class MyPacManGame implements ApplicationListener {
         safeZone = new Rectangle(4, 5, 2, 1);
         pacmanZone = new Rectangle();
 
-
         tiledMap = new TmxMapLoader().load("clasic.tmx");
-        // Get the layer named "walls" from the TiledMap
-        wallLayer = (TiledMapTileLayer) tiledMap.getLayers().get("walls");
+        // Get the layer named "PacmanMap" from the TiledMap
+        tiledMapRenderer = new OrthogonalTiledMapRenderer(tiledMap);
+        wallLayer = (TiledMapTileLayer) tiledMap.getLayers().get("PacmanMap");
+        pelletLayer = (TiledMapTileLayer) tiledMap.getLayers().get("FoodMap");
+
+        pelletTimers = new HashMap<>();
+
 
         mapPixmap = new Pixmap(Gdx.files.internal("meta-tiles.png"));
         wallColor = new Color(0, 0, 0, 1);
 
-        score = 0;
+        int newScore = 0;
     }
 
     @Override
@@ -113,28 +126,21 @@ public class MyPacManGame implements ApplicationListener {
     public void input() {
         float delta = Gdx.graphics.getDeltaTime();
 
-        float nextX = pacmanSprite.getX();
-        float nextY = pacmanSprite.getY();
-
-        pacmanVelocityX = 0; // Reset velocities to avoid continuous movement
-        pacmanVelocityY = 0;
+        int speed = 40;
 
         if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
-            nextX += PAC_SPEED * delta;
+            pacmanSprite.translateX(speed * delta);
         } else if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
-            nextX -= PAC_SPEED * delta;
-        } else if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
-            nextY += PAC_SPEED * delta;
+            pacmanSprite.translateX(-speed * delta);
+        }
+        else if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
+            pacmanSprite.translateY(speed * delta);
         } else if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
-            nextY -= PAC_SPEED * delta;
+            pacmanSprite.translateY(-speed * delta);
         }
 
         // Before actually moving, check if the next position collides with a wall
-        if (!isCollision(nextX, nextY)) {
-            // No collision, so move Pac-Man to the new position
-            pacmanSprite.setX(nextX);
-            pacmanSprite.setY(nextY);
-    }}
+        }
 
     public boolean isCollision(float x, float y) {
         // Convert world coordinates (x, y) to pixel coordinates in the image
@@ -156,50 +162,52 @@ public class MyPacManGame implements ApplicationListener {
 
 
     public void logic() {
-        // Calculate next position based on current position + velocity
-        float nextX = pacmanSprite.getX() + pacmanVelocityX;
-        float nextY = pacmanSprite.getY() + pacmanVelocityY;
-
-        // Check if the next position collides with a wall
-        if (!isCollision(nextX, nextY)) {
-            // No collision, so move Pac-Man to the new position
-            pacmanSprite.setX(nextX);
-            pacmanSprite.setY(nextY);
-        } else {
-            // Collision detected, adjust Pac-Man's position or stop
-            // You can add logic here to adjust Pac-Man's position to stop at the wall,
-            // or handle "bouncing" off walls if you prefer.
-            // For example, stop movement in the direction of the collision:
-            if (pacmanVelocityX != 0) { // Horizontal movement
-                pacmanSprite.setX(pacmanSprite.getX()); // Keep Pac-Man in place horizontally
-            }
-            if (pacmanVelocityY != 0) { // Vertical movement
-                pacmanSprite.setY(pacmanSprite.getY()); // Keep Pac-Man in place vertically
-            }
-        }
-
-        // Additional logic for keeping Pac-Man within bounds of the screen, if necessary
         float worldWidth = viewport.getWorldWidth();
         float worldHeight = viewport.getWorldHeight();
         pacmanSprite.setX(MathUtils.clamp(pacmanSprite.getX(), 0, worldWidth - pacmanSprite.getWidth()));
         pacmanSprite.setY(MathUtils.clamp(pacmanSprite.getY(), 0, worldHeight - pacmanSprite.getHeight()));
     }
     public void points() {
-        if (pacmanSprite.getBoundingRectangle().overlaps(powerPillSprite.getBoundingRectangle())) {
+        score = 1;
+        for (int x = 0; x < pelletLayer.getWidth(); x++) {
+            for (int y = 0; y < pelletLayer.getHeight(); y++) {
+                TiledMapTileLayer.Cell cell = pelletLayer.getCell(x, y);
 
-            System.out.println("Pac-Man position: " + pacmanSprite.getX() + ", " + pacmanSprite.getY());
-            System.out.println("Power pill position: " + powerPillSprite.getX() + ", " + powerPillSprite.getY());
+                if (cell != null && !pelletTimers.containsKey(x + "," + y)) {
+                    // Check for collision with the pellet
+                    if (pacmanSprite.getBoundingRectangle().overlaps(new Rectangle(15+x, 15+y, 1f, 1f))) {
+
+                        newScore += score;// Increment the score
+                        System.out.println("Pac-Man score is: " + newScore);
+
+                        // Mark this pellet as eaten and start the timer
+                        //pelletTimers.put(x + "," + y, PELLET_DISAPPEAR_TIME);
+
+                        // Remove the pellet from the layer
+                        pelletLayer.setCell(x, y, null);
+                    }
+                }
+
+                    if (newScore == 246) {
+                        // Restore the pellet after 1 minute
+                        newScore = 0;
+                        TiledMap newTiledMap = new TmxMapLoader().load("clasic.tmx");
+                        pelletLayer = (TiledMapTileLayer) newTiledMap.getLayers().get("FoodMap");
+                        // After resetting the layer, you might want to call tiledMapRenderer.render() to re-render the map
+                        tiledMapRenderer.setMap(newTiledMap);  // Update the renderer with the new map
 
 
-            if (difficulty.equals("Easy")) {
-                score += 1;
-                System.out.println("Pac-Man score is: " + score);
-
-                powerPillSprite.setPosition(-10, -10);
-
+                        /*pelletTimers.remove(x + "," + y);
+                        TiledMapTile tile = new StaticTiledMapTile(/*new TextureRegion(powerPillTexture) );
+                        TiledMapTileLayer.Cell newCell = new TiledMapTileLayer.Cell();
+                        newCell.setTile(tile);
+                        pelletLayer.setCell(x, y, newCell);*/
+                    }
+                }
             }
         }
-    }
+
+
     public void draw() {
         // Clear the screen
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
@@ -207,24 +215,17 @@ public class MyPacManGame implements ApplicationListener {
         // Apply viewport transformations
         viewport.apply();
 
+        tiledMapRenderer.setView((OrthographicCamera) viewport.getCamera()); // Set the camera view
+        tiledMapRenderer.render(); // Render the tile map layers
+
         spriteBatch.setProjectionMatrix(viewport.getCamera().combined);
         spriteBatch.begin();
 
-        //spriteBatch.draw(backgroundTexture, 0, 0, viewport.getWorldWidth(), viewport.getWorldHeight());
         ghostSprite.draw(spriteBatch);
         pacmanSprite.draw(spriteBatch);
 
-        for (int i = 0; i <= 10; i++) {
-            float xPos = i * 1.0f;
-            float yPos = 5.0f;
-
-            powerPillSprite.setPosition(xPos, yPos);
-            powerPillSprite.draw(spriteBatch);
-        }
 
         spriteBatch.end();
-
-        /*drawCoordinatePlane();*/
     }
 
     public void dispose() {
@@ -235,49 +236,6 @@ public class MyPacManGame implements ApplicationListener {
         pacmanTexture.dispose();
         ghostTexture.dispose();
         tiledMap.dispose();
-        mapPixmap.dispose();
+        tiledMapRenderer.dispose();
     }
 }
-
-    /*public void drawCoordinatePlane() {
-        shapeRenderer.setProjectionMatrix(viewport.getCamera().combined);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-        shapeRenderer.setColor(Color.GRAY);
-
-        // Draw grid lines
-        for (float y = -viewport.getWorldHeight() / 2; y < viewport.getWorldHeight() / 2; y++) {
-            shapeRenderer.line(-viewport.getWorldWidth() / 2, y, viewport.getWorldWidth() / 2, y);
-        }
-        for (float x = -viewport.getWorldWidth() / 2; x < viewport.getWorldWidth() / 2; x++) {
-            shapeRenderer.line(x, -viewport.getWorldHeight() / 2, x, viewport.getWorldHeight() / 2);
-        }
-
-        // Draw axes
-        shapeRenderer.setColor(Color.GREEN);
-        shapeRenderer.line(-viewport.getWorldWidth() / 2, 0, viewport.getWorldWidth() / 2, 0);
-        shapeRenderer.line(0, -viewport.getWorldHeight() / 2, 0, viewport.getWorldHeight() / 2);
-
-        shapeRenderer.end();
-
-        // Draw axis labels
-        spriteBatch.begin();
-        font.setColor(Color.WHITE);
-        font.getData().setScale(0.5f);  // Scale down the font to fit better
-
-        // Draw x-axis labels
-        for (float x = -viewport.getWorldWidth() / 2 + 1; x < viewport.getWorldWidth() / 2; x++) {
-            if (x != 0) {
-                font.draw(spriteBatch, String.valueOf((int) x), x, 0.2f);
-            }
-        }
-
-        // Draw y-axis labels
-        for (float y = -viewport.getWorldHeight() / 2 + 1; y < viewport.getWorldHeight() / 2; y++) {
-            if (y != 0) {
-                font.draw(spriteBatch, String.valueOf((int) y), 0.2f, y);
-            }
-        }
-
-        spriteBatch.end();
-    }*/
-
