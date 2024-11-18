@@ -5,22 +5,15 @@ import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.maps.MapObjects;
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.maps.tiled.TiledMapTile;
 import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
 import com.badlogic.gdx.maps.tiled.TmxMapLoader;
-import com.badlogic.gdx.maps.tiled.objects.TiledMapTileMapObject;
-import com.badlogic.gdx.maps.tiled.tiles.StaticTiledMapTile;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
-
-import java.util.HashMap;
-import java.util.Map;
 
 
 public class MyPacManGame implements ApplicationListener {
@@ -135,27 +128,6 @@ public class MyPacManGame implements ApplicationListener {
         // Before actually moving, check if the next position collides with a wall
         }
 
-    public boolean isCollision(float x, float y) {
-        // Convert world coordinates (x, y) to pixel coordinates in the image
-        //int pixelX = (int) (x); // Adjust scaling if necessary
-       // int pixelY = (int) (y);
-
-        // Ensure that the coordinates are within bounds of the image
-        //if (pixelX < 0 || pixelX >= mapPixmap.getWidth() || pixelY < 0 || pixelY >= mapPixmap.getHeight()) {
-          //  return false; // Outside the map, no collision
-        //}
-
-        return false;
-
-        // Get the color of the pixel at the (x, y) position
-        /*int pixelColor = mapPixmap.getPixel(pixelX, pixelY);
-        Color color = new Color(pixelColor);
-
-        // Check if the pixel color matches the wall color (black)
-        return color.equals(wallColor); // true if it's a black pixel (wall)*/
-    }
-
-
     public void logic() {
         float worldWidth = viewport.getWorldWidth();
         float worldHeight = viewport.getWorldHeight();
@@ -194,19 +166,7 @@ public class MyPacManGame implements ApplicationListener {
                 pacmanSprite.setX(pacmanSprite.getX());
                 pacmanSprite.setY(pacmanSprite.getY());
             }
-// Perform action for this specific tile type
-            /*TiledMapTile tile = cell.getTile();
-            Rectangle tileRect = new Rectangle(tileX * tileWidth, tileY * tileHeight, tileWidth, tileHeight);
 
-            if (pacmanRect.overlaps(tileRect))
-                if (tile.getId() == 26) {
-                    newScore += score;
-                    System.out.println("Pac-Man score is: " + newScore);
-
-                    // Remove the pellet from the map
-                    pelletLayer.setCell(tileX, tileY, null);
-                    System.out.println("Removed the pellet at " + tileX + "," + tileY);
-                }*/
         }
 
             if (newScore % 246 == 0) {
