@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.maps.MapObjects;
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.maps.tiled.TiledMapTile;
 import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
@@ -26,7 +27,6 @@ public class MyPacManGame implements ApplicationListener {
     Texture backgroundTexture;
     Texture pacmanTexture;
     Texture ghostTexture;
-    Texture powerPillTexture;
     FitViewport viewport;
     Sprite ghostSprite;
     Sprite pacmanSprite;
@@ -40,16 +40,11 @@ public class MyPacManGame implements ApplicationListener {
     int speed;
     int numGhosts;
 
-
     ShapeRenderer shapeRenderer;
     BitmapFont font;
 
-    private final float PAC_SPEED = 4f;
-    private final float PELLET_DISAPPEAR_TIME = 60f;
-
     private TiledMap tiledMap;
     private TiledMapTileLayer wallLayer;
-    private Map<String, Float> pelletTimers;
     private TiledMapTileLayer pelletLayer;// Track pellet timers
 
 
@@ -61,7 +56,7 @@ public class MyPacManGame implements ApplicationListener {
     @Override
     public void create() {
         backgroundTexture = new Texture("Maze.png");
-        pacmanTexture = new Texture("Pacman.png");
+        pacmanTexture = new Texture("PacmanSmall.png");
         ghostTexture = new Texture("ghost.png");
 
         viewport = new FitViewport(280, 280);
@@ -90,8 +85,6 @@ public class MyPacManGame implements ApplicationListener {
         tiledMapRenderer = new OrthogonalTiledMapRenderer(tiledMap);
         wallLayer = (TiledMapTileLayer) tiledMap.getLayers().get("PacmanMap");
         pelletLayer = (TiledMapTileLayer) tiledMap.getLayers().get("FoodMap");
-
-        pelletTimers = new HashMap<>();
 
 
         mapPixmap = new Pixmap(Gdx.files.internal("meta-tiles.png"));
@@ -144,20 +137,22 @@ public class MyPacManGame implements ApplicationListener {
 
     public boolean isCollision(float x, float y) {
         // Convert world coordinates (x, y) to pixel coordinates in the image
-        int pixelX = (int) (x); // Adjust scaling if necessary
-        int pixelY = (int) (y);
+        //int pixelX = (int) (x); // Adjust scaling if necessary
+       // int pixelY = (int) (y);
 
         // Ensure that the coordinates are within bounds of the image
-        if (pixelX < 0 || pixelX >= mapPixmap.getWidth() || pixelY < 0 || pixelY >= mapPixmap.getHeight()) {
-            return false; // Outside the map, no collision
-        }
+        //if (pixelX < 0 || pixelX >= mapPixmap.getWidth() || pixelY < 0 || pixelY >= mapPixmap.getHeight()) {
+          //  return false; // Outside the map, no collision
+        //}
+
+        return false;
 
         // Get the color of the pixel at the (x, y) position
-        int pixelColor = mapPixmap.getPixel(pixelX, pixelY);
+        /*int pixelColor = mapPixmap.getPixel(pixelX, pixelY);
         Color color = new Color(pixelColor);
 
         // Check if the pixel color matches the wall color (black)
-        return color.equals(wallColor); // true if it's a black pixel (wall)
+        return color.equals(wallColor); // true if it's a black pixel (wall)*/
     }
 
 
@@ -167,46 +162,61 @@ public class MyPacManGame implements ApplicationListener {
         pacmanSprite.setX(MathUtils.clamp(pacmanSprite.getX(), 0, worldWidth - pacmanSprite.getWidth()));
         pacmanSprite.setY(MathUtils.clamp(pacmanSprite.getY(), 0, worldHeight - pacmanSprite.getHeight()));
     }
+
     public void points() {
         score = 1;
-        for (int x = 0; x < pelletLayer.getWidth(); x++) {
-            for (int y = 0; y < pelletLayer.getHeight(); y++) {
-                TiledMapTileLayer.Cell cell = pelletLayer.getCell(x, y);
+        Rectangle pacmanRect = pacmanSprite.getBoundingRectangle();
 
-                if (cell != null && !pelletTimers.containsKey(x + "," + y)) {
-                    // Check for collision with the pellet
-                    if (pacmanSprite.getBoundingRectangle().overlaps(new Rectangle(15+x, 15+y, 1f, 1f))) {
+        int tileWidth = wallLayer.getTileWidth();
+        int tileHeight = wallLayer.getTileHeight();
 
-                        newScore += score;// Increment the score
-                        System.out.println("Pac-Man score is: " + newScore);
+        float pacmanX = pacmanSprite.getX();
+        float pacmanY = pacmanSprite.getY();
 
-                        // Mark this pellet as eaten and start the timer
-                        //pelletTimers.put(x + "," + y, PELLET_DISAPPEAR_TIME);
+        int tileX = (int) (pacmanX / tileWidth);
+        int tileY = (int) (pacmanY / tileHeight);
 
-                        // Remove the pellet from the layer
-                        pelletLayer.setCell(x, y, null);
-                    }
-                }
+        TiledMapTileLayer.Cell cell = pelletLayer.getCell(tileX, tileY);
+        // Check for collision with the pellet
+        if (cell != null) {
+            TiledMapTile tile = cell.getTile();
+            System.out.println(tile.getId());
 
-                    if (newScore == 246) {
-                        // Restore the pellet after 1 minute
-                        newScore = 0;
-                        TiledMap newTiledMap = new TmxMapLoader().load("clasic.tmx");
-                        pelletLayer = (TiledMapTileLayer) newTiledMap.getLayers().get("FoodMap");
-                        // After resetting the layer, you might want to call tiledMapRenderer.render() to re-render the map
-                        tiledMapRenderer.setMap(newTiledMap);  // Update the renderer with the new map
+            if (tile.getId() == 27|| tile.getId() == 18) {
+                newScore += score;
+                System.out.println("Pac-Man score is: " + newScore);
 
-
-                        /*pelletTimers.remove(x + "," + y);
-                        TiledMapTile tile = new StaticTiledMapTile(/*new TextureRegion(powerPillTexture) );
-                        TiledMapTileLayer.Cell newCell = new TiledMapTileLayer.Cell();
-                        newCell.setTile(tile);
-                        pelletLayer.setCell(x, y, newCell);*/
-                    }
-                }
+                // Remove the pellet from the map
+                pelletLayer.setCell(tileX, tileY, null);
+                System.out.println("Removed the pellet at " + tileX + "," + tileY);
             }
+            else{
+                pacmanSprite.setX(pacmanSprite.getX());
+                pacmanSprite.setY(pacmanSprite.getY());
+            }
+// Perform action for this specific tile type
+            /*TiledMapTile tile = cell.getTile();
+            Rectangle tileRect = new Rectangle(tileX * tileWidth, tileY * tileHeight, tileWidth, tileHeight);
+
+            if (pacmanRect.overlaps(tileRect))
+                if (tile.getId() == 26) {
+                    newScore += score;
+                    System.out.println("Pac-Man score is: " + newScore);
+
+                    // Remove the pellet from the map
+                    pelletLayer.setCell(tileX, tileY, null);
+                    System.out.println("Removed the pellet at " + tileX + "," + tileY);
+                }*/
         }
 
+            if (newScore % 246 == 0) {
+                TiledMap newTiledMap = new TmxMapLoader().load("clasic.tmx");
+                pelletLayer = (TiledMapTileLayer) newTiledMap.getLayers().get("FoodMap");
+                // After resetting the layer, you might want to call tiledMapRenderer.render() to re-render the map
+                tiledMapRenderer.setMap(newTiledMap);  // Update the renderer with the new map
+            }
+
+    }
 
     public void draw() {
         // Clear the screen
