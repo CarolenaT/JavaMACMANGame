@@ -52,7 +52,7 @@ public class MyPacManGame implements ApplicationListener {
         pacmanTexture = new Texture("PacmanSmall.png");
         ghostTexture = new Texture("ghost.png");
 
-        viewport = new FitViewport(280, 280);
+        viewport = new FitViewport(224, 288);
         viewport.getCamera().position.set(viewport.getWorldWidth() / 2, viewport.getWorldHeight() / 2, 0);
         viewport.getCamera().update();
 
@@ -123,21 +123,27 @@ public class MyPacManGame implements ApplicationListener {
         // Get the current tile coordinates (based on Pac-Man's current position)
         int tileX = (int) (pacmanX / wallLayer.getTileWidth());
         int tileY = (int) (pacmanY / wallLayer.getTileHeight());
+        int yPix = tileY * wallLayer.getTileWidth();
+        int xPix = tileX * wallLayer.getTileWidth();
+
 
         System.out.println(tileX + ", " + tileY);
 
         if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
             if (!isBarrierTile(tileX + 1, tileY)) {
-                pacmanSprite.setPosition(tileX + 1, tileY);  // Move right
+                pacmanSprite.setPosition((tileX + 1)*8, yPix);
+                //pacmanSprite.translateX(speed * delta);  // Move right
             }
         } else if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
             // Check for collision with the tile to the left
             if (!isBarrierTile(tileX - 1, tileY)) {
-                pacmanSprite.setPosition(tileX - 1, tileY);  // Move left
+                pacmanSprite.setPosition((tileX - 1)*8, yPix);
+                //pacmanSprite.translateX(speed * -delta);  // Move left
             }
         } else if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
             if (!isBarrierTile(tileX, tileY + 1)) {
-                pacmanSprite.setPosition(tileX, tileY + 1);
+                pacmanSprite.setPosition(xPix, (tileY + 1)*8);
+                //pacmanSprite.translateY(speed * delta);
                 System.out.println("You can move up!");
             }
             else{
@@ -145,7 +151,8 @@ public class MyPacManGame implements ApplicationListener {
             }
         } else if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
             if (!isBarrierTile(tileX, tileY - 1)) {
-                pacmanSprite.setPosition(tileX, tileY - 1);
+                pacmanSprite.setPosition(xPix, (tileY - 1)*8);
+                //pacmanSprite.translateY(speed * -delta);
             }
         }
     }
