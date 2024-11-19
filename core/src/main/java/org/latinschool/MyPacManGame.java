@@ -53,7 +53,7 @@ public class MyPacManGame implements ApplicationListener {
         ghostTexture = new Texture("ghost.png");
 
         viewport = new FitViewport(280, 280);
-        viewport.getCamera().position.set(0, 0, 0);
+        viewport.getCamera().position.set(viewport.getWorldWidth() / 2, viewport.getWorldHeight() / 2, 0);
         viewport.getCamera().update();
 
         ghostSprite = new Sprite(ghostTexture);
@@ -64,7 +64,7 @@ public class MyPacManGame implements ApplicationListener {
 
 
         ghostSprite.setPosition(20, 20);
-        pacmanSprite.setPosition(15, 15);
+        pacmanSprite.setPosition(16, 16);
 
         spriteBatch = new SpriteBatch();
         shapeRenderer = new ShapeRenderer();
@@ -84,6 +84,8 @@ public class MyPacManGame implements ApplicationListener {
         wallColor = new Color(0, 0, 0, 1);
 
         int newScore = 0;
+
+
     }
 
     @Override
@@ -114,19 +116,39 @@ public class MyPacManGame implements ApplicationListener {
 
         int speed = 40;
 
-        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
-            pacmanSprite.translateX(speed * delta);
-        } else if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
-            pacmanSprite.translateX(-speed * delta);
-        }
-        else if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
-            pacmanSprite.translateY(speed * delta);
-        } else if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
-            pacmanSprite.translateY(-speed * delta);
-        }
+        // Pac-Man's current position
+        float pacmanX = pacmanSprite.getX();
+        float pacmanY = pacmanSprite.getY();
 
-        // Before actually moving, check if the next position collides with a wall
+        // Get the current tile coordinates (based on Pac-Man's current position)
+        int tileX = (int) (pacmanX / wallLayer.getTileWidth());
+        int tileY = (int) (pacmanY / wallLayer.getTileHeight());
+
+        System.out.println(tileX + ", " + tileY);
+
+        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
+            if (!isBarrierTile(tileX + 1, tileY)) {
+                pacmanSprite.setPosition(tileX + 1, tileY);  // Move right
+            }
+        } else if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
+            // Check for collision with the tile to the left
+            if (!isBarrierTile(tileX - 1, tileY)) {
+                pacmanSprite.setPosition(tileX - 1, tileY);  // Move left
+            }
+        } else if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
+            if (!isBarrierTile(tileX, tileY + 1)) {
+                pacmanSprite.setPosition(tileX, tileY + 1);
+                System.out.println("You can move up!");
+            }
+            else{
+                System.out.println("You can't move up!");
+            }
+        } else if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
+            if (!isBarrierTile(tileX, tileY - 1)) {
+                pacmanSprite.setPosition(tileX, tileY - 1);
+            }
         }
+    }
 
     public void logic() {
         float worldWidth = viewport.getWorldWidth();
@@ -152,8 +174,6 @@ public class MyPacManGame implements ApplicationListener {
         // Check for collision with the pellet
         if (cell != null) {
             TiledMapTile tile = cell.getTile();
-            System.out.println(tile.getId());
-
             if (tile.getId() == 27|| tile.getId() == 18) {
                 newScore += score;
                 System.out.println("Pac-Man score is: " + newScore);
@@ -161,10 +181,6 @@ public class MyPacManGame implements ApplicationListener {
                 // Remove the pellet from the map
                 pelletLayer.setCell(tileX, tileY, null);
                 System.out.println("Removed the pellet at " + tileX + "," + tileY);
-            }
-            else{
-                pacmanSprite.setX(pacmanSprite.getX());
-                pacmanSprite.setY(pacmanSprite.getY());
             }
 
         }
@@ -176,6 +192,17 @@ public class MyPacManGame implements ApplicationListener {
                 tiledMapRenderer.setMap(newTiledMap);  // Update the renderer with the new map
             }
 
+    }
+    public boolean isBarrierTile(int tileX, int tileY) {
+        // Get the tile at the given coordinates
+        TiledMapTileLayer.Cell cell = wallLayer.getCell(tileX, tileY);
+
+        if (cell == null) {
+            return false;
+        }
+
+        TiledMapTile tile = cell.getTile();
+        return tile.getId() != 1;
     }
 
     public void draw() {
