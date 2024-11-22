@@ -6,7 +6,7 @@ import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
 
 public class Ghost extends Sprite {
-    int ghostX;
+    /*int ghostX;
     int ghostY;
     MyPacManGame game;
 
@@ -29,7 +29,7 @@ public class Ghost extends Sprite {
         this.ghostY = ghostY;
         this.game = game;
     }
-    /*public void move(){
+    public void move(){
         float delta = Gdx.graphics.getDeltaTime();
         // Only allow movement if the ghost move timer has finished
         if (ghostMoveTimer > 0) {

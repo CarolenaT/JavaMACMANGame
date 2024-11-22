@@ -15,8 +15,6 @@ import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
 
-import static java.lang.Thread.sleep;
-
 
 public class MyPacManGame implements ApplicationListener {
     Texture backgroundTexture;
@@ -34,6 +32,7 @@ public class MyPacManGame implements ApplicationListener {
     int newScore;
     int speed;
     int numGhosts;
+    int hearts;
 
     ShapeRenderer shapeRenderer;
     BitmapFont font;
@@ -46,6 +45,8 @@ public class MyPacManGame implements ApplicationListener {
     private float pauseTimer = 0f;
     private float ghostMoveTime = 0.06f; // 0.5 seconds pause (adjustable)
     private float ghostMoveTimer = 0f;
+
+    int ghost1CurrentDirection = 3;
 
     Pixmap mapPixmap;
     Color wallColor;
@@ -64,8 +65,8 @@ public class MyPacManGame implements ApplicationListener {
         viewport.getCamera().position.set(viewport.getWorldWidth() / 2, viewport.getWorldHeight() / 2, 0);
         viewport.getCamera().update();
 
-        //ghostSprite = new Sprite(ghostTexture);
-        ghostSprite = new Ghost(ghostTexture, Direction.RIGHT, 24,16,this);
+        ghostSprite = new Sprite(ghostTexture);
+        //ghostSprite = new Ghost(ghostTexture, Direction.RIGHT, 24,16,this);
         pacmanSprite = new Sprite(pacmanTexture);
 
         ghostSprite.setSize(8, 8);
@@ -92,6 +93,9 @@ public class MyPacManGame implements ApplicationListener {
         pelletLayer = (TiledMapTileLayer) tiledMap.getLayers().get("FoodMap");
 
 
+        hearts = 3;
+        numGhosts = 4;
+
         mapPixmap = new Pixmap(Gdx.files.internal("meta-tiles.png"));
         wallColor = new Color(0, 0, 0, 1);
 
@@ -108,7 +112,9 @@ public class MyPacManGame implements ApplicationListener {
     @Override
     public void render() {
         input();
-       // ghostSprite.move();
+        renderGhosts();
+        pause();
+        moveGhost();
         logic();
         points();
         draw();
@@ -121,6 +127,14 @@ public class MyPacManGame implements ApplicationListener {
 
     @Override
     public void pause() {
+        if (ghostSprite.getBoundingRectangle().overlaps(pacmanSprite.getBoundingRectangle())) {
+            hearts -= 1;
+            System.out.println("You lose a heart!");
+        }
+        if (hearts == 0){
+            System.out.println("You lose! Sorry!");
+
+        }
 
     }
 
@@ -224,52 +238,66 @@ public class MyPacManGame implements ApplicationListener {
         }
 
         // Random direction
-        int direction = MathUtils.random(3);
+        //int currentDirection = MathUtils.random(3);
 
         // Get current position in tiles
         int tileX = (int) (ghostX / wallLayer.getTileWidth());
         int tileY = (int) (ghostY / wallLayer.getTileHeight());
-
+        int randomNumber;
 
         // Movement logic: check each direction
         boolean moved = false;
 
-        switch (direction) {
+        switch (ghost1CurrentDirection) {
             case 0: // Move Up
                 if (!isBarrierTile(tileX, tileY + 1)) {
-                    ghostY += wallLayer.getTileHeight(); // Move the ghost up
-                    moved = true;
+                        ghostY += wallLayer.getTileHeight(); // Move the ghost up
+                        moved = true;
                 }
                 else {
-                    // If collided with a wall, change direction
-                    direction = MathUtils.random(3); // Choose a new random direction
+                    do {
+                        ghost1CurrentDirection = MathUtils.random.nextInt(4);
+                    } while (ghost1CurrentDirection == 1 || ghost1CurrentDirection == 0);
                 }
                 break;
+
+
             case 1: // Move Down
                 if (!isBarrierTile(tileX, tileY - 1)) {
                     ghostY -= wallLayer.getTileHeight(); // Move the ghost down
                     moved = true;
                 }
                 else {
-                    direction = MathUtils.random(3);
+                    do {
+                        ghost1CurrentDirection = MathUtils.random.nextInt(4);
+                    } while (ghost1CurrentDirection == 1 || ghost1CurrentDirection == 0);
                 }
                 break;
+
+
             case 2: // Move Left
                 if (!isBarrierTile(tileX - 1, tileY)) {
                     ghostX -= wallLayer.getTileWidth(); // Move the ghost left
                     moved = true;
                 }
                 else {
-                    direction = MathUtils.random(3);
+                    do {
+                        ghost1CurrentDirection = MathUtils.random.nextInt(4);
+                    } while (ghost1CurrentDirection == 3 || ghost1CurrentDirection == 2);
                 }
                 break;
+
+
             case 3: // Move Right
                 if (!isBarrierTile(tileX + 1, tileY)) {
                     ghostX += wallLayer.getTileWidth(); // Move the ghost right
                     moved = true;
                 }
                 else {
-                    direction = MathUtils.random(3);
+                    do {
+                        // Generate a random number between 0 and 3
+                        ghost1CurrentDirection = MathUtils.random.nextInt(4);
+                    } while (ghost1CurrentDirection == 3 || ghost1CurrentDirection == 2);
                 }
                 break;
         }
@@ -291,6 +319,13 @@ public class MyPacManGame implements ApplicationListener {
         return tile.getId() != 1;
     }
 
+    public void renderGhosts(){
+        for (int x = numGhosts; x > 0; x--){
+            ghostSprite = new Sprite(ghostTexture);
+            ghostSprite.setSize(8, 8);
+            ghostSprite.setPosition(80, 80);
+        }
+    }
     public void draw() {
         // Clear the screen
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
@@ -304,6 +339,7 @@ public class MyPacManGame implements ApplicationListener {
         spriteBatch.setProjectionMatrix(viewport.getCamera().combined);
         spriteBatch.begin();
 
+        renderGhosts();
         pacmanSprite.draw(spriteBatch);
         ghostSprite.setPosition(ghostX, ghostY);
         ghostSprite.draw(spriteBatch);
