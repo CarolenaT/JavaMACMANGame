@@ -1,8 +1,12 @@
 package org.latinschool;
 
 import com.badlogic.gdx.*;
+import com.badlogic.gdx.audio.Music;
+import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.*;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
@@ -14,23 +18,27 @@ import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
+import java.util.ArrayList;
 
 
 public class MyPacManGame implements ApplicationListener {
+    Sound deathSound;
+    Sound eatingSound;
+    Music music;
     Texture backgroundTexture;
     Texture pacmanTexture;
     Texture ghostTexture;
+    Texture left;
+    Texture up;
+    Texture down;
     FitViewport viewport;
-    Sprite ghostSprite;
+    ArrayList<Ghost> ghosts;
     Sprite pacmanSprite;
     SpriteBatch spriteBatch;
-    Rectangle safeZone;
     Rectangle pacmanZone;
-    MyPacManGame game;
     String difficulty;
     int score;
     int newScore;
-    int speed;
     int numGhosts;
     int hearts;
 
@@ -41,49 +49,48 @@ public class MyPacManGame implements ApplicationListener {
     private TiledMapTileLayer wallLayer;
     private TiledMapTileLayer pelletLayer;// Track pellet timers
 
-    private float pauseTime = 0.06f; // 0.5 seconds pause (adjustable)
-    private float pauseTimer = 0f;
-    private float ghostMoveTime = 0.06f; // 0.5 seconds pause (adjustable)
-    private float ghostMoveTimer = 0f;
-
-    int ghost1CurrentDirection = 3;
+    float pauseTime = 0.06f; //
+    float pauseTimer = 0f;
+    public float ghostPauseTime;
+    public float ghostPauseTimer = 0f;
+    float messageTimer = 0f;
+    String currentMessage = "";
 
     Pixmap mapPixmap;
     Color wallColor;
-
-    private float ghostX, ghostY;
 
     private OrthogonalTiledMapRenderer tiledMapRenderer;
 
     @Override
     public void create() {
+        deathSound = Gdx.audio.newSound(Gdx.files.internal("pacman_death.wav"));
+        eatingSound = Gdx.audio.newSound(Gdx.files.internal("pacman_chomp.wav"));
+        music = Gdx.audio.newMusic(Gdx.files.internal("playingMusic.mp3"));
+        music.setLooping(true);
+        music.setVolume(.5f);
+        music.play();
+
         backgroundTexture = new Texture("Maze.png");
         pacmanTexture = new Texture("PacmanSmall.png");
+        up = new Texture("PacmanUp.png");
+        down = new Texture("PacmanDown.png");
+        left = new Texture("PacmanLeft.png");
         ghostTexture = new Texture("ghost.png");
 
         viewport = new FitViewport(224, 288);
         viewport.getCamera().position.set(viewport.getWorldWidth() / 2, viewport.getWorldHeight() / 2, 0);
         viewport.getCamera().update();
 
-        ghostSprite = new Sprite(ghostTexture);
-        //ghostSprite = new Ghost(ghostTexture, Direction.RIGHT, 24,16,this);
         pacmanSprite = new Sprite(pacmanTexture);
 
-        ghostSprite.setSize(8, 8);
         pacmanSprite.setSize(8, 8);
 
-
-        ghostSprite.setPosition(16, 32);
         pacmanSprite.setPosition(16, 24);
-
-        ghostY = 24;
-        ghostX = 24;
 
         spriteBatch = new SpriteBatch();
         shapeRenderer = new ShapeRenderer();
         font = new BitmapFont();
 
-        safeZone = new Rectangle(4, 5, 2, 1);
         pacmanZone = new Rectangle();
 
         tiledMap = new TmxMapLoader().load("clasic.tmx");
@@ -92,15 +99,46 @@ public class MyPacManGame implements ApplicationListener {
         wallLayer = (TiledMapTileLayer) tiledMap.getLayers().get("PacmanMap");
         pelletLayer = (TiledMapTileLayer) tiledMap.getLayers().get("FoodMap");
 
-
-        hearts = 3;
-        numGhosts = 4;
-
         mapPixmap = new Pixmap(Gdx.files.internal("meta-tiles.png"));
         wallColor = new Color(0, 0, 0, 1);
 
         int newScore = 0;
 
+        difficulty = "Easy";
+
+        switch (difficulty) {
+            case "Easy":
+                numGhosts = 4;
+                score = 1;
+                hearts = 5;
+                ghostPauseTime = 0.6f;
+                break;
+            case "Medium":
+                numGhosts = 6;
+                score = 10;
+                hearts = 3;
+                ghostPauseTime = 0.8f;
+                break;
+            case "Hard":
+                numGhosts = 8;
+                score = 20;
+                hearts = 1;
+                ghostPauseTime = 1f;
+                break;
+            default:
+                numGhosts = 2;
+                score = 1;
+                hearts = 5;
+                ghostPauseTime = 0.6f;
+                break;
+        }
+
+        ghosts = new ArrayList<>();
+
+        // Create multiple ghosts
+        for (int i = 0; i < numGhosts; i++) {
+            ghosts.add(new Ghost(ghostTexture, MathUtils.random(16, 200), MathUtils.random(16, 200)));
+        }
 
     }
 
@@ -112,12 +150,12 @@ public class MyPacManGame implements ApplicationListener {
     @Override
     public void render() {
         input();
-        renderGhosts();
-        pause();
+        lives();
         moveGhost();
         logic();
         points();
         draw();
+        drawMessage();
     }
 
     @Override
@@ -127,15 +165,44 @@ public class MyPacManGame implements ApplicationListener {
 
     @Override
     public void pause() {
-        if (ghostSprite.getBoundingRectangle().overlaps(pacmanSprite.getBoundingRectangle())) {
-            hearts -= 1;
-            System.out.println("You lose a heart!");
+
+    }
+
+    public void lives(){
+        for (Ghost ghost : ghosts) {
+            if (ghost.sprite.getBoundingRectangle().overlaps(pacmanSprite.getBoundingRectangle())) {
+                hearts -= 1;
+                pacmanSprite.setPosition(112,136);
+                deathSound.play();
+
+                currentMessage = "You lost a heart!";
+                messageTimer = 2f;
+                break;
+            }
         }
         if (hearts == 0){
-            System.out.println("You lose! Sorry!");
-
+            deathSound.play();
+            currentMessage = "Game Over!";
+            messageTimer = 5f;
+            Gdx.app.exit();
         }
+    }
 
+    public void drawMessage() {
+        if (messageTimer > 0) {
+            // Decrease the timer
+            messageTimer -= Gdx.graphics.getDeltaTime();
+
+            GlyphLayout layout = new GlyphLayout();
+            layout.setText(font, currentMessage);
+
+            // Draw the current message on the screen
+            spriteBatch.begin();
+            font.setColor(Color.RED);
+            font.getData().setScale(2);
+            font.draw(spriteBatch, currentMessage, viewport.getWorldWidth() / 2 - layout.width / 2, viewport.getWorldHeight() / 2 + layout.height / 2);
+            spriteBatch.end();
+        }
     }
 
     public void input() {
@@ -163,22 +230,26 @@ public class MyPacManGame implements ApplicationListener {
             if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
                 if (!isBarrierTile(tileX + 1, tileY)) {
                     pacmanSprite.setPosition((tileX + 1) * 8, yPix);
+                    pacmanSprite.setTexture(pacmanTexture);
                     pauseTimer = pauseTime;
 
                 }
             } else if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
                 if (!isBarrierTile(tileX - 1, tileY)) {
                     pacmanSprite.setPosition((tileX - 1) * 8, yPix);
+                    pacmanSprite.setTexture(left);
                     pauseTimer = pauseTime;
                 }
             } else if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
                 if (!isBarrierTile(tileX, tileY + 1)) {
                     pacmanSprite.setPosition(xPix, (tileY + 1) * 8);
+                    pacmanSprite.setTexture(up);
                     pauseTimer = pauseTime;
                 }
             } else if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
                 if (!isBarrierTile(tileX, tileY - 1)) {
                     pacmanSprite.setPosition(xPix, (tileY - 1) * 8);
+                    pacmanSprite.setTexture(down);
                     pauseTimer = pauseTime;
                 }
             }
@@ -189,10 +260,9 @@ public class MyPacManGame implements ApplicationListener {
         float worldHeight = viewport.getWorldHeight();
         pacmanSprite.setX(MathUtils.clamp(pacmanSprite.getX(), 0, worldWidth - pacmanSprite.getWidth()));
         pacmanSprite.setY(MathUtils.clamp(pacmanSprite.getY(), 0, worldHeight - pacmanSprite.getHeight()));
-    }
 
+    }
     public void points() {
-        score = 1;
         Rectangle pacmanRect = pacmanSprite.getBoundingRectangle();
 
         int tileWidth = wallLayer.getTileWidth();
@@ -210,6 +280,7 @@ public class MyPacManGame implements ApplicationListener {
             TiledMapTile tile = cell.getTile();
             if (tile.getId() == 27|| tile.getId() == 18) {
                 newScore += score;
+                eatingSound.play();
                 System.out.println("Pac-Man score is: " + newScore);
 
                 // Remove the pellet from the map
@@ -230,80 +301,9 @@ public class MyPacManGame implements ApplicationListener {
 
     public void moveGhost() {
         float delta = Gdx.graphics.getDeltaTime();
-
-        // Only allow movement if the ghost move timer has finished
-        if (ghostMoveTimer > 0) {
-            ghostMoveTimer -= delta;
-            return;
-        }
-
-        // Random direction
-        //int currentDirection = MathUtils.random(3);
-
-        // Get current position in tiles
-        int tileX = (int) (ghostX / wallLayer.getTileWidth());
-        int tileY = (int) (ghostY / wallLayer.getTileHeight());
-        int randomNumber;
-
-        // Movement logic: check each direction
-        boolean moved = false;
-
-        switch (ghost1CurrentDirection) {
-            case 0: // Move Up
-                if (!isBarrierTile(tileX, tileY + 1)) {
-                        ghostY += wallLayer.getTileHeight(); // Move the ghost up
-                        moved = true;
-                }
-                else {
-                    do {
-                        ghost1CurrentDirection = MathUtils.random.nextInt(4);
-                    } while (ghost1CurrentDirection == 1 || ghost1CurrentDirection == 0);
-                }
-                break;
-
-
-            case 1: // Move Down
-                if (!isBarrierTile(tileX, tileY - 1)) {
-                    ghostY -= wallLayer.getTileHeight(); // Move the ghost down
-                    moved = true;
-                }
-                else {
-                    do {
-                        ghost1CurrentDirection = MathUtils.random.nextInt(4);
-                    } while (ghost1CurrentDirection == 1 || ghost1CurrentDirection == 0);
-                }
-                break;
-
-
-            case 2: // Move Left
-                if (!isBarrierTile(tileX - 1, tileY)) {
-                    ghostX -= wallLayer.getTileWidth(); // Move the ghost left
-                    moved = true;
-                }
-                else {
-                    do {
-                        ghost1CurrentDirection = MathUtils.random.nextInt(4);
-                    } while (ghost1CurrentDirection == 3 || ghost1CurrentDirection == 2);
-                }
-                break;
-
-
-            case 3: // Move Right
-                if (!isBarrierTile(tileX + 1, tileY)) {
-                    ghostX += wallLayer.getTileWidth(); // Move the ghost right
-                    moved = true;
-                }
-                else {
-                    do {
-                        // Generate a random number between 0 and 3
-                        ghost1CurrentDirection = MathUtils.random.nextInt(4);
-                    } while (ghost1CurrentDirection == 3 || ghost1CurrentDirection == 2);
-                }
-                break;
-        }
-
-        if (moved) {
-            ghostMoveTimer = ghostMoveTime; // Reset the move timer
+        // Move each ghost
+        for (Ghost ghost : ghosts) {
+            ghost.move(wallLayer, delta);
         }
     }
 
@@ -315,17 +315,21 @@ public class MyPacManGame implements ApplicationListener {
             return false;
         }
 
+
         TiledMapTile tile = cell.getTile();
+        if (tile.getId() == 36){
+            pelletLayer.setCell(tileX, tileY, null);
+            return false;
+        }
         return tile.getId() != 1;
     }
 
     public void renderGhosts(){
-        for (int x = numGhosts; x > 0; x--){
-            ghostSprite = new Sprite(ghostTexture);
-            ghostSprite.setSize(8, 8);
-            ghostSprite.setPosition(80, 80);
+        for (Ghost ghost : ghosts) {
+            ghost.sprite.draw(spriteBatch); // Draw each ghost
         }
     }
+
     public void draw() {
         // Clear the screen
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
@@ -339,10 +343,9 @@ public class MyPacManGame implements ApplicationListener {
         spriteBatch.setProjectionMatrix(viewport.getCamera().combined);
         spriteBatch.begin();
 
-        renderGhosts();
         pacmanSprite.draw(spriteBatch);
-        ghostSprite.setPosition(ghostX, ghostY);
-        ghostSprite.draw(spriteBatch);
+
+        renderGhosts();
 
 
         spriteBatch.end();
